@@ -1,44 +1,47 @@
-# Dynamic Pricing for Urban Parking Lots
+## Dynamic Pricing for Urban Parking Lots
 
-This project implements a real-time, adaptive pricing engine for city parking lots based on occupancy and environmental data.
+A fully‑worked Google Colab notebook that builds an "adaptive, real‑time pricing engine" for 14 urban parking lots.It ingests half‑hourly sensor data, performs end‑to‑end EDA, engineers features, and streams live prices via the "Pathway" data‑streaming framework.
 
-## 🔧 Technologies Used
-- Python (Google Colab)
-- Pandas, NumPy, Seaborn, Matplotlib, Bokeh
-- Pathway (for real-time streaming)
 
-## Project Components
+### Tech Stack
+| Layer | Libraries / Tools | Purpose |
+|-------|------------------|---------|
+| Data wrangling | "Pandas", "NumPy" | load, clean, winsorise outliers |
+| Visualisation | "Seaborn", "Matplotlib", "Bokeh" | static & interactive EDA plots |
+| Real‑time engine | "Pathway" | table‑stream, UDF pricing, console sink |
+| Notebook env. | "Google Colab" | reproducible cloud runtime |
 
-### 1. Data Overview
-- Dataset includes occupancy, queue length, traffic, GPS coordinates, and time-stamps for ~14 parking lots over several weeks.
+---
 
-### 2. EDA (Exploratory Data Analysis)
-- Checked for missing values and duplicates
-- Univariate analysis with histograms and bar charts
-- Correlation heatmap with annotations
-- Outlier detection via boxplots (excluding IDs)
-- Outlier treatment via winsorisation (1st–99th percentile)
+### Architecture Diagram (Mermaid)
 
-### 3. Feature Engineering
-- Derived 'OccupancyRate', 'IsSpecialDay', 'LatRound', and 'LongRound' for modeling.
+mermaid
+graph TD
+    A[dataset.csv<br>raw sensor data] -->|pandas read_csv| B(Clean & EDA)
+    B -->|feature engineering| C[DataFrame with features]
+    C -->|table_from_pandas| D[Pathway Table]
+    D -->|@pw.udf Model 1/2/3| E[Price Column]
+    E -->|pw.io.subscribe| F(Console / API Sink)
 
-### 4. Pricing Models
-# - Model 1 (Linear): Pricing based on OccupancyRate.
-# - Model 2 (Demand):Adds traffic, queue length, and event impact.
-# - Model 3 (Competitive):Adjusts price based on similar nearby lots.
 
-### 5. Real-Time Pricing (Pathway)
-- Data is streamed row-by-row using 'pw.debug.table_from_pandas'.
-- Prices are computed using the selected model (Model 1, 2, or 3).
-- Output is streamed with 'pw.io.subscribe' and printed to console.
+## Workflow Details
+1.Data ingestion & EDA
+--Missing/duplicate check, histograms, bar charts, correlation heat‑map with labels for easy interpretation. 
+--Outliers detected by IQR, removed by winsorisation using DataFrame.clip. 
+2.Feature engineering
+OccupancyRate, IsSpecialDay, rounded lat/long (LatRound, LongRound) to group competitor lots.
+3.Pricing models
+--Model 1 (Linear) – price = $10 ± 0.5 × base × OccupancyRate.
+--Model 2 (Demand) – adds queue length, traffic, event flag; smoothed with tanh.
+--Model 3 (Competitive) – boosts/discounts Model 2 output by comparing to nearby‐lot average price.
+-Each model caps prices to 0.5×–2× base using a shared _bound() helper.
+4.Real‑time streaming with Pathway
+--Cleaned DataFrame → pw.debug.table_from_pandas. 
+--Stateless UDFs compute the chosen model’s price per row.
+--pw.io.subscribe prints inserts; every new row yields a fresh decision stream.
 
-## How to Run
-1. Open in Google Colab
-2. Run pip install cell: '!pip install pathway bokeh seaborn'
-3. Execute cells in order (EDA ➝ Modeling ➝ Streaming)
-
-## Files
-- 'dynamic_pricing.ipynb': Main notebook
-- 'README.txt': This file
-- 'final_report.pdf': Analysis + explanation of approach
-- 'dataset.csv' : Data which is used in this analysis
+## Repository Structure
+dynamic_pricing.ipynb   # Colab notebook (run top‑to‑bottom)
+final_report.pdf        # Detailed report (methodology & findings)
+dataset.csv             # Source data
+README.md               # (this file)
